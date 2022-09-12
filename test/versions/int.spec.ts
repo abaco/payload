@@ -111,6 +111,75 @@ describe('Versions', () => {
         expect(secondUpdate.description).toBe(finalDescription);
       });
 
+      it('should allow saving a draft without overwriting the first draft', async () => {
+        const description1 = 'description 1';
+
+        const autosavePost = await payload.create({
+          collection,
+          data: {
+            title: 'A title',
+            description: description1,
+          },
+          draft: true,
+        });
+
+        await payload.update({
+          id: autosavePost.id,
+          collection,
+          data: {
+            description: 'description 2',
+          },
+          draft: true,
+        });
+
+        const versions = await payload.findVersions({
+          collection,
+          where: { parent: { equals: autosavePost.id } },
+        });
+
+        expect(versions.docs).toHaveLength(1);
+        expect(versions.docs[0].version.description).toBe(description1);
+      });
+
+      it('should allow saving a draft without overwriting the previous published version', async () => {
+        const description1 = 'description 1';
+        const description2 = 'description 2';
+
+        const autosavePost = await payload.create({
+          collection,
+          data: {
+            title: 'Another title',
+            description: description1,
+          },
+        });
+
+        await payload.update({
+          id: autosavePost.id,
+          collection,
+          data: {
+            description: description2,
+          },
+        });
+
+        await payload.update({
+          id: autosavePost.id,
+          collection,
+          data: {
+            description: 'description 3',
+          },
+          draft: true,
+        });
+
+        const versions = await payload.findVersions({
+          collection,
+          where: { parent: { equals: autosavePost.id } },
+        });
+
+        expect(versions.docs).toHaveLength(2);
+        expect(versions.docs[0].version.description).toBe(description2);
+        expect(versions.docs[1].version.description).toBe(description1);
+      });
+
       it('should allow a version to be retrieved by ID', async () => {
         const version = await payload.findVersionByID({
           collection,
